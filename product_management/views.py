@@ -347,6 +347,10 @@ class BountyClaimView(FormView):
         return super().post(request, *args, **kwargs)
 
 
+from termcolor import cprint
+
+
+
 class CreateProductView(LoginRequiredMixin, CreateView):
     model = Product
     form_class = ProductForm
@@ -363,7 +367,7 @@ class CreateProductView(LoginRequiredMixin, CreateView):
         if self._is_htmx_request(request):
             return super().post(request, *args, **kwargs)
 
-        form = self.form_class(request.POST, request.FILES)
+        form = self.form_class(request.POST, request.FILES,request=request)
         if form.is_valid():
             instance = form.save(commit=False)
 
@@ -398,6 +402,10 @@ class CreateProductView(LoginRequiredMixin, CreateView):
             )
             self.success_url = reverse("product_summary", args=(instance.slug,))
             return redirect(self.success_url)
+            cprint(f"success -----", "green")
+        
+        else:
+            cprint(f"errrors----- {form.errors}", "red")
 
         return super().post(request, *args, **kwargs)
 
@@ -410,11 +418,21 @@ class UpdateProductView(LoginRequiredMixin, UpdateView):
 
     def get(self, request, *args, **kwargs):
         self.object = self.get_object()
-        return super().get(request, *args, **kwargs)
+        from django.contrib.contenttypes.models import ContentType
+        from termcolor import cprint
+        aa = self.object.object_id == request.user.id
+        bb = self.object.content_type_id == ContentType.objects.get_for_model( self.request.user )
+        cprint(f'425 {aa=} {bb=}',"green")
+        initial_make_me_owner = aa and bb
+        
+        
+        form = self.form_class(instance=self.object, initial={"make_me_owner": initial_make_me_owner})
+        return render(request, self.template_name, {"form": form, "product_instance": self.object})
+        # return super().get(request, *args, **kwargs)
 
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
-        form = self.form_class(request.POST, request.FILES, instance=self.object)
+        form = self.form_class(request.POST, request.FILES, instance=self.object,request=request)
         if form.is_valid():
             instance = form.save()
             self.success_url = reverse("product_summary", args=(instance.slug,))

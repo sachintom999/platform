@@ -63,7 +63,7 @@ class ProductForm(forms.ModelForm):
     organisation = forms.ModelChoiceField(
         empty_label="Select an organisation",
         required=False,
-        queryset=Organisation.objects.none(),
+        queryset=Organisation.objects.all(),
         to_field_name="name",
         label="Organisations",
         widget=forms.Select(
@@ -76,7 +76,7 @@ class ProductForm(forms.ModelForm):
         label="Make me the owner",
         widget=forms.CheckboxInput(
             attrs={
-                "class": "h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600",
+                "class": "text-red-300 bg-red-300 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600",
             }
         ),
         required=False,
@@ -84,6 +84,9 @@ class ProductForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop("request", None)
+        from termcolor import cprint
+        cprint(f'87 {self.request=}\n','green')
+        
         super(ProductForm, self).__init__(*args, **kwargs)
         self.fields["content_type"].required = False
         self.fields["object_id"].required = False
@@ -99,6 +102,29 @@ class ProductForm(forms.ModelForm):
             raise ValidationError(error)
 
         return name
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        from termcolor import cprint
+        cprint(f'108 {cleaned_data=}\n','green')
+
+        make_me_owner = cleaned_data.get("make_me_owner")
+        organisation = cleaned_data.get("organisation")
+
+        if make_me_owner and organisation:
+            raise forms.ValidationError("A product cannot be owned by a person and an organisation")
+        from django.contrib.contenttypes.models import ContentType
+        if make_me_owner:
+            cleaned_data['content_type'] = ContentType.objects.get_for_model( self.request.user.person )
+            cleaned_data["object_id"] = self.request.user.id
+        else:
+            cleaned_data['content_type'] = ContentType.objects.get_for_model(organisation)
+            cleaned_data["object_id"] = organisation.id
+        
+
+
+        
+        return cleaned_data
 
     class Meta:
         model = Product
